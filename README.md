@@ -1,10 +1,15 @@
 # opus-playbook
 
-An agent skill for a lead model that hands work to Opus, or to any subagent or worker session,
-and has to decide whether the result does the job that was asked. It writes a brief that can be
-checked, runs a nine-step ladder on what comes back, and ends with one verdict: accept, return,
-take over or escalate. It is for people who run a stronger model as the lead and want to know
-what it verified before it says "done".
+An agent skill for a lead model, Fable in the usual setup, that deputes tasks to Opus or to any
+subagent or worker session. It covers the lead's four jobs:
+
+1. Decide whether the task should be handed off at all.
+2. Brief it so the result can be checked.
+3. Enforce the terms while it runs: scope, tools, tests, stop rules.
+4. Check what comes back and call go or no-go, with the evidence.
+
+It is for people who run a stronger model as the lead and want to know what it verified before
+it says "done".
 
 It is not a guide to prompting Opus.
 
@@ -23,13 +28,13 @@ Then confirm `opus-playbook` appears in the agent's skill list.
 
 - "Hand this fix to Opus and make sure it actually did it before we merge."
 - "The subagent says the tests pass. Is that true?"
-- "How do you know the worker didn't just stub it out?"
+- "If you give this to Opus, how will you check it, and what is your go/no-go?"
 
 ## What is in the folder
 
 | File | Why it exists |
 | --- | --- |
-| `SKILL.md` | The brief, the check ladder, the report phrases, the verdict and the record |
+| `SKILL.md` | The hand-off tests, the brief, the enforcement table, the check ladder, the go and no-go lists and the record |
 | `scripts/worker_diff.py` | The mechanical part of the ladder: changed files, files the report never names, test and CI edits, and added lines that skip, silence or stub. Needs Python 3 and git; reads only |
 | `references/trigger-cases.md` | The trigger test cases and their results |
 
@@ -39,15 +44,16 @@ optional; without them the skill says what it did not cover.
 
 ## Boundaries
 
-- Handles: the acceptance decision on delegated work, checked against the brief it was given.
+- Handles: whether to hand a task off, how its terms are enforced, and the go or no-go on what
+  comes back, checked against the brief it was given.
 - Does not handle: a defect review of code with no brief (`consistent-code-review`), deciding
   which model takes which role (`setup-claude-advisor`), effort and fan-out (`choose-effort`),
   or pressure-testing a decision (`crash-test`).
 
 ## Test results
 
-- Version 0.1.1: 0 pass by execution, 0 fail, 10 reviewed-only, 0 not run. The ten trigger cases
-  were read by hand against the descriptions; no live session was used.
+- Version 0.2.0: 0 pass by execution, 0 fail, 13 reviewed-only, 0 not run. The thirteen trigger
+  cases were read by hand against the descriptions; no live session was used.
 - `worker_diff.py` reported 7 of 7 planted problems in a throwaway repository.
 - The skill has not yet been used on a real hand-off to Opus.
 

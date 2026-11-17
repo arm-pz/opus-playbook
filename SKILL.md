@@ -1,45 +1,88 @@
 ---
 name: opus-playbook
-description: Checks whether work a lead model handed to Opus, or to any subagent or worker session, does the job that was asked, and returns one evidenced verdict (accept, return, take over or escalate). Writes a checkable brief, confirms which model served the run, inventories the diff with a script, re-runs the verification, looks for edited tests, opens cited facts, checks scope and probes an unbriefed case. Use whenever the user wants to delegate to Opus and be sure of the result, asks "is Opus doing its job", "did the subagent actually do it", "check the worker's output", "can I trust what the agent says it did", or when a subagent has just reported back and its result is about to be relayed or shipped, even if they never say "verify". Not for a defect review of code with no brief to check against (use consistent-code-review), choosing which model takes which role (use setup-claude-advisor), or pressure-testing a decision (use crash-test).
-version: 0.1.1
+description: Playbook for a lead model (Fable) that deputes a task to Opus, or to any subagent or worker session. Decides whether the task should be handed off at all, writes a checkable brief, enforces its terms (scope, tools, tests, stop rules), checks what comes back, and gives a go or no-go for the task with evidence. Bundles a script that inventories the worker's diff. Use whenever the user wants to delegate to Opus and be sure of the result, asks "is Opus doing its job", "did the subagent actually do it", "how will you check the worker", "what is your go/no-go", "can I trust what the agent says it did", or when a subagent has just reported back and its result is about to be relayed or shipped, even if they never say "verify". Not for a defect review of code with no brief to check against (use consistent-code-review), choosing which model takes which role (use setup-claude-advisor), or pressure-testing a decision (use crash-test).
+version: 0.2.0
 ---
 
 # Opus playbook
 
-You are the lead. Another model did the work: Opus in the usual setup, but the same checks hold
-for any subagent, worker session or background agent. Your name goes on what you pass upward, so
-the question is never "did the worker say it is done" but "can I show it is done".
+You are the lead: Fable in the usual setup. You depute a task to Opus, or to any subagent,
+worker session or background agent. The task stays yours. The user hears the result from you, so
+you answer for it whoever typed it.
 
-One rule carries most of the weight: **the report is a claim; the evidence is on disk.** Read the
-diff, run the command, open the cited line. A worker's summary is written by the party being
-checked, and it describes what the worker meant to do.
+That gives you four jobs, in order:
 
-Nothing here assumes the worker is careless. These are the failures of any delegated worker,
-however capable: it had less context than you, it could not ask you questions, and it had to
-stop somewhere. The checks look in the places where that shows.
+1. **Decide** whether this task should be handed off at all.
+2. **Brief** it so the result can be checked.
+3. **Enforce** the terms while it runs.
+4. **Check** what comes back and call **go or no-go**.
 
-## 1. Before you delegate: make the work checkable
+One rule carries most of the weight: **the report is a claim; the evidence is on disk.** A
+worker's summary is written by the party being checked, and it describes what the worker meant
+to do. Nothing here assumes the worker is careless. It had less context than you, it could not
+ask you questions, and it had to stop somewhere. The checks look where that shows.
 
-You can only check against intent you wrote down. Send a brief with these five parts, and write
-part 3 before you see any output so the result cannot shape it.
+## 1. Decide: go or no-go to delegate
+
+Hand a task off only when all four hold. If one fails, do the task yourself or fix what is
+missing first.
+
+| Test | Go | No-go |
+| --- | --- | --- |
+| Can you state "done" as conditions you can test? | Yes, and you can write them now | You would know it when you saw it |
+| Does the context fit in a brief? | The worker can start from what you write down | It depends on the whole conversation, or on judgement calls the user made along the way |
+| Is checking cheaper than doing? | The check is a diff read and a re-run | The only real check is to redo the work |
+| Can the result be undone, or checked before it matters? | It lands as files or findings you review first | The task itself pushes, deploys, sends, deletes or spends |
+
+Never depute these, whatever the tests say: a decision that belongs to the user, the final
+accept of the worker's own output, and the irreversible step at the end. You push. You send. You
+tell the user it is done.
+
+## 2. Brief: make the work checkable
+
+You can only check against intent you wrote down. Send these six parts, and write part 3 before
+you see any output so the result cannot shape it.
 
 | Part | What it says | Example |
 | --- | --- | --- |
-| 1. Goal | The outcome and why it matters, in one or two sentences | "Checkout fails for carts over 99 items. Fix it so large orders go through." |
-| 2. Context | What you already know that the worker would have to rediscover: files, constraints, things already tried | "The limit is in `cart/validate.py`. Raising the constant alone was tried and breaks the pricing cache." |
-| 3. Done when | Observable conditions you can test yourself | "`pytest tests/cart` passes; a 150-item cart returns 200; no test file is edited." |
-| 4. Boundaries | What must not change, and actions that are off limits | "Do not touch `pricing/`. No push, no new dependency." |
-| 5. Return | The evidence you want back | "Files changed, each command you ran with its real output, and anything you did not do or could not verify." |
+| 1. Goal | The outcome and why it matters | "Checkout fails for carts over 99 items. Fix it so large orders go through." |
+| 2. Context | What you know that the worker would have to rediscover | "The limit is in `cart/validate.py`. Raising the constant alone breaks the pricing cache." |
+| 3. Done when | Conditions you can test yourself | "`pytest tests/cart` passes; a 150-item cart returns 200; no test file is edited." |
+| 4. Boundaries | What must not change and what is off limits | "Do not touch `pricing/`. No push, no new dependency." |
+| 5. Stop rule | When to stop and report instead of improvising | "If the fix needs a change in `pricing/`, stop and say so. Do not work around it." |
+| 6. Return | The evidence you want back | "Files changed, each command you ran with its real output, and anything you did not do or could not verify." |
 
-Keep one private check out of the brief: a case you will try yourself that the worker was not
-told about (step 5 below). A worker can satisfy the stated conditions and still miss the goal.
+Keep one check out of the brief: a case you will try yourself that the worker was not told
+about. A worker can satisfy every stated condition and still miss the goal.
 
-If you cannot write part 3, the task is not ready to hand off. Do the scoping yourself first.
+## 3. Enforce: make the terms hold
 
-## 2. On return: the check ladder
+A rule in the brief is a request. A rule in the environment is enforced. Wherever the runtime
+lets you, move a term from the first kind to the second, and treat the rest as things you must
+verify afterwards.
+
+| Term | Enforce it with | If the runtime cannot |
+| --- | --- | --- |
+| Stay inside the boundary | An isolated copy to work in (a worktree, a branch, a scratch checkout), so nothing reaches the real tree until you take it | Record the starting commit and diff against it on return |
+| No irreversible actions | Do not grant the tools. Use a read-only or restricted agent type, a permission mode without push or deploy, no credentials in the worker's environment | State it in the brief and treat any such action as an automatic no-go |
+| The model you chose | Set the model on the spawn call or agent definition; do not rely on a default | Check what served afterwards (step 0 below) |
+| A bounded run | A turn, time or cost limit on the worker | A stop rule in the brief, and you interrupt when it is passed |
+| Tests are not the worker's to change | Say so in "done when", then check it mechanically with the script | Diff the test and CI files by hand |
+| Evidence comes back | The return format in part 6. A report with no commands and no output goes back unread | Same |
+| No self-grading | Any second opinion comes from a fresh context that sees the brief and the diff, never from the worker that did the job | Do the read yourself |
+
+On a long task, set one checkpoint: ask for a stop after the first milestone, run the check
+ladder on that piece, and only then release the rest. A wrong approach caught at 20 percent
+costs one return. Caught at the end, it costs the task. Do not poll a short task; wait for it.
+
+Interrupt a running worker when it touches a boundary file, starts work the brief did not ask
+for, or passes its stop rule. Tell it what you saw and what to do instead. Do not let it finish
+"to see what happens".
+
+## 4. Check: the ladder
 
 Pick the depth from what happens next with the result, then run the steps in order. Stop at the
-first failure and go to the verdict; later steps on broken work are wasted.
+first failure and go to section 5; later steps on broken work are wasted.
 
 | What happens next | Depth | Steps |
 | --- | --- | --- |
@@ -79,10 +122,9 @@ Pasted output is not a run. Run the whole suite the change could touch, not only
 worker named.
 
 **5. Check the tests were not bent.** Start from the script's test and config section, then diff
-those files yourself. Skips added,
-assertions loosened, cases deleted, thresholds lowered, snapshots regenerated, a check moved out
-of CI: each of these makes red turn green without fixing anything. If the brief said tests are
-off limits, any edit here fails the work.
+those files yourself. Skips added, assertions loosened, cases deleted, thresholds lowered,
+snapshots regenerated, a check moved out of CI: each of these makes red turn green without
+fixing anything.
 
 **6. Check cited facts at the source.** Open the `file:line`, fetch the URL, run the query. Check
 at least the claims your next decision rests on. One invented path or quote means every other
@@ -94,41 +136,65 @@ It is unreviewed change that arrived under someone else's ticket.
 
 **8. Probe the unbriefed case.** Try the input you held back: the boundary value, the empty
 list, the second locale, the path the worker had no reason to think of. At full depth, also get
-an independent read from a fresh context that sees only the brief and the diff, never the
-worker's report. Do not ask the same agent whether its work is right.
+an independent read from a fresh context that sees only the brief and the diff.
 
-## 3. Report phrases that need a closer look
+### Report phrases that need a closer look
 
 | The report says | What to check |
 | --- | --- |
 | "should work", "this will", "is expected to" | Nothing was run. Do step 4. |
 | "verified", "confirmed", "tested" with no command or output | Ask for the command, then run it yourself. |
-| "updated the tests to reflect the new behaviour" | Step 5. Decide whether the behaviour change was in the brief. |
-| "couldn't X, so I did Y instead" | A substitution. Is Y the goal, or only something nearby? |
+| "updated the tests to reflect the new behaviour" | Step 5. Was the behaviour change in the brief? |
+| "couldn't X, so I did Y instead" | A substitution, and a passed stop rule. Is Y the goal, or only something nearby? |
 | "also cleaned up", "while I was there" | Step 7, extra scope. |
 | "mostly", "the main cases", "for now" | Which cases are not covered. Compare with "done when". |
 | "pre-existing failure", "unrelated flake" | Check out the starting commit and see whether it failed there. |
-| A count that is exactly round, or a result with no caveats on a hard task | Recount, and find the hard part in the diff. |
+| A result with no caveats on a hard task | Find the hard part in the diff. |
 | No mention of something the brief asked for | Treat as not done until you find it. |
 
-## 4. The verdict
+## 5. Go or no-go for the task
 
-Give one, with the evidence for it.
+**Go** needs every line true. One false line is a no-go; there is no "mostly go".
 
-| Verdict | When | What you do |
+- Each "done when" condition passed a check you ran yourself.
+- Nothing outside the boundary changed.
+- Test and check config are untouched, or the brief asked for the change.
+- Every changed file is accounted for, including the ones the report did not name.
+- The claims your next step rests on held at the source.
+- The unbriefed probe passed (full depth).
+- The worker took no irreversible action.
+
+**Automatic no-go**, whatever else passed:
+
+| Finding | Why it ends the discussion |
+| --- | --- |
+| A test, assertion or CI check was weakened to get green | The evidence for every other condition is now suspect |
+| Output, a path, a quote or a citation was invented | Nothing else in the report can be taken on its word |
+| "Verified" cannot be reproduced when you run it | Same |
+| An irreversible action was taken without leave (push, deploy, send, delete) | The terms were broken where it costs most; tell the user at once |
+| A boundary file was changed | Out-of-scope change has had no review |
+
+**Not a no-go:** an approach you would not have chosen that meets every condition, style you
+would have written differently, a different model having served when the work still passes
+(record it). Do not return work for taste.
+
+A no-go has three exits. Pick one and say which.
+
+| Exit | When | What you do |
 | --- | --- | --- |
-| **Accept** | Every "done when" condition passed a check you ran, scope is clean | Relay it, stating what you verified. |
-| **Return** | A specific, fixable gap, and the worker's context is still useful | Send it back to the same agent with the failing evidence: the command, its output, the line. Say what to change and what to leave alone. Do not say "are you sure" or "try again". |
-| **Take over** | Two returns have not closed it, or the fix is smaller than the explanation | Finish it yourself and say you did. |
-| **Escalate** | The brief was wrong, the conditions conflict, or the gap is a decision that belongs to the user | Stop and bring the user the choice with what you found. |
+| **Return** | A specific, fixable gap, and the worker's context is still useful | Send it back to the same worker with the failing evidence: the command, its output, the line. Say what to change and what to leave alone. Never "are you sure" or "try again". |
+| **Take over** | Two returns have not closed it, the fix is smaller than the explanation, or the finding was an automatic no-go on trust | Discard or repair the work yourself and say you did. |
+| **Escalate** | The brief was wrong, the conditions conflict, an irreversible action happened, or the gap is a decision that belongs to the user | Stop and bring the user the choice with what you found. |
 
 Two returns is the limit. If the same kind of failure comes back a second time, the cause is
 usually the brief: a missing constraint or an ambiguous goal. Rewrite it and start a fresh
-worker instead of arguing with the old one.
+worker instead of arguing with the old one. After any return, re-run the ladder from step 2. A
+fix for one finding is new, unchecked work.
 
-On a return, re-run the whole ladder from step 2. A fix for one finding is new, unchecked work.
+A go is a go for the task. It is not leave to ship. The push, the deploy and the send stay with
+you and, where they cannot be undone, with the user.
 
-## 5. What you tell the user
+## 6. What you tell the user
 
 Keep three things apart, in this order:
 
@@ -140,13 +206,8 @@ Never fold the second into the first. "Opus reports the migration is complete; I
 schema and the row counts, and did not test rollback" is a true sentence. "The migration is
 complete" may not be.
 
-## 6. What this is not
-
-- Not redoing the work. If your check costs as much as the task, the hand-off was the wrong call
-  or the "done when" was too vague. Fix that next time.
-- Not distrust as a posture. Most runs pass. The ladder is short when they do.
-- Not a substitute for the user's own review of anything irreversible. You can accept the work;
-  you cannot approve the push on their behalf.
+If your check costs as much as the task did, the hand-off was the wrong call. That is a section
+1 failure; note it and keep the next task of that kind.
 
 ## Record
 
@@ -155,24 +216,24 @@ Leave this where the work is tracked (the PR, the task, your reply):
 ```
 Worker:      <model asked for> (served: <model reported, or unknown>)
 Brief:       <goal in one line>
+Enforced:    <isolation, tool limits, run limit>   Left to the brief: <terms>
 Done when:   <condition> -> <check you ran> -> pass | fail
              <condition> -> <check you ran> -> pass | fail
 Changed:     <files>   Unmentioned: <files or none>   Tests edited: yes | no
 Unbriefed probe: <input> -> <result>
 Not checked: <what, and why>
-Verdict:     accept | return (n of 2) | take over | escalate
+Decision:    GO | NO-GO (<the line or finding that failed>)
+Exit:        return (n of 2) | take over | escalate
 ```
 
 ## Hand off
 
-Offer the next step in one line; do not start it uninvited.
+Offer the next step in one line; do not start it uninvited. Each line names a skill that takes
+the work if it is installed. If it is not, say what was and was not checked and stop there.
 
-Each line names a skill that takes the work if it is installed. If it is not, say what was and
-was not checked and stop there.
-
-- The work meets its brief but the code may hold defects the brief never covered: give a code
-  review skill (`consistent-code-review`) the commit range and the brief. Without one, say the
-  diff has had an acceptance check and no defect review.
+- The work is a go but the code may hold defects the brief never covered: give a code review
+  skill (`consistent-code-review`) the commit range and the brief. Without one, say the diff
+  has had an acceptance check and no defect review.
 - The run was served by the wrong model more than once, or the role split is the problem: give
   a model-setup skill (`setup-claude-advisor`) the record lines showing which model was asked
   for and which served.

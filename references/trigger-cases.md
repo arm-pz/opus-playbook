@@ -6,7 +6,8 @@ what to load. Competing descriptions read for these cases, each from its own SKI
 2026-11-17: `consistent-code-review`, `setup-claude-advisor`, `choose-effort`, `crash-test`,
 `harness-audit`.
 
-**Run:** hand-run on 2026-11-17 against the descriptions only. No automated triggering loop and
+**Run:** hand-run on 2026-11-17 against the descriptions only, and all thirteen re-read the same
+day against the 0.2.0 description. No automated triggering loop and
 no live session was used. Pass conditions describe what the skill should then do; none of them
 has been observed in a real hand-off to Opus.
 
@@ -14,7 +15,7 @@ has been observed in a real hand-off to Opus.
 
 | # | Message | Expected skill | Pass condition | Result |
 | --- | --- | --- | --- | --- |
-| 1 | "Hand the migration to Opus and make sure it actually did it before we merge." | opus-playbook | writes the five-part brief before spawning; runs the ladder at full depth on return | PASS |
+| 1 | "Hand the migration to Opus and make sure it actually did it before we merge." | opus-playbook | writes the six-part brief before spawning; runs the ladder at full depth on return | PASS |
 | 2 | "The subagent says the refactor is done and the tests pass. Is that true?" | opus-playbook | re-runs the tests itself; does not relay the claim as verified | PASS |
 | 3 | "Is Opus doing what I asked it to in that session?" | opus-playbook | confirms which model served, then checks each "done when" condition | PASS |
 | 4 | "Before you tell me it's finished, how do you know the worker didn't just stub it out?" | opus-playbook | runs `worker_diff.py` and reads the flagged lines | PASS |
@@ -23,10 +24,13 @@ has been observed in a real hand-off to Opus.
 | 7 | "Which model should my subagents run on, Opus or Sonnet?" | setup-claude-advisor | does not load opus-playbook | PASS (explicit "Not for choosing which model takes which role") |
 | 8 | "Write me a playbook for prompting Opus 5.5." | none of these | does not load opus-playbook | PASS on the description, which never mentions prompting. The skill's name invites this request; see the name note in the README |
 | 9 | "I don't trust this architecture plan. Get me a second opinion." | crash-test | does not load opus-playbook | PASS (a decision, not a delegated result) |
-| 10 | "Should I fan this job out to subagents, and at what effort?" | choose-effort | does not load opus-playbook | PASS (nothing has been delegated yet) |
+| 10 | "Should I fan this job out to subagents, and at what effort?" | choose-effort | does not load opus-playbook | PASS, weaker since 0.2.0: "at what effort" points to `choose-effort`, but "handed off at all" in this description now sits close to it |
+| 11 | "You're the lead. If you give this to Opus, how will you check it, and what's your go/no-go?" | opus-playbook | states the "done when" conditions, the enforcement it will use and the go list before spawning | PASS |
+| 12 | "Let the worker do the refactor, but it must not push or touch the tests." | opus-playbook | withholds push from the worker's tools where the runtime allows; treats a test edit as an automatic no-go | PASS ("enforces its terms (scope, tools, tests, stop rules)") |
+| 13 | "Should this one even go to a subagent, or should you just do it yourself?" | opus-playbook | answers from the four tests in section 1 | PASS, weak: `choose-effort` ("whether to fan out to subagents") may load too |
 
-Ten cases, ten reviewed by hand, none executed in a live session. No failures; case 5 is the one
-to re-run first if the description changes.
+Thirteen cases, thirteen reviewed by hand, none executed in a live session. No failures. Cases
+5, 10 and 13 are the weak ones and the first to re-run if a description on either side changes.
 
 ## Boundary pairs
 
@@ -37,6 +41,8 @@ to re-run first if the description changes.
 | "Check what the worker reported before you pass it on." | opus-playbook | a delegated result is about to be relayed |
 | "Set Opus up as my advisor model." | setup-claude-advisor | configures roles, checks no work |
 | "The brief keeps failing; is the approach itself wrong?" | crash-test | the decision is in question, not one result |
+| "Is this task safe to hand to a worker?" | opus-playbook | one task, judged on whether its result can be checked |
+| "How much effort should this job get, and should it use an agent team?" | choose-effort | effort and fan-out for the whole job, before any brief exists |
 
 Spans both: "check the subagent's work, then review the code properly" starts with opus-playbook,
 which gives its verdict and then offers `consistent-code-review` the commit range and the brief.

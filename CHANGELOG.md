@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0 (2026-11-17)
+- Reframed as the lead's playbook: decide, brief, enforce, check, go or no-go.
+- New section 1: four tests for whether a task should be handed off at all, and what is never
+  deputed.
+- New section 3: how to enforce each term of the brief through the runtime, a checkpoint for
+  long tasks, and when to interrupt.
+- Section 5 is now an explicit go list, a table of automatic no-go findings, and three exits.
+- The brief gains a stop rule (six parts). The record gains "Enforced" and "Decision" lines.
+- Description changed, so all trigger cases were re-read: 13 cases, 0 fail, 13 reviewed-only.
+
 ## 0.1.1 (2026-11-17)
 - Made the text worker-neutral and runtime-neutral: Opus is the usual case, not a requirement;
   step 0 no longer names one runtime's tools; hand-offs to other skills are optional.
