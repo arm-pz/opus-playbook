@@ -38,6 +38,7 @@ ADDED = [
         r"except\s*:|except\s+(Exception|BaseException)\b[^:]*:\s*(pass)?\s*$|catch\s*(\([^)]*\))?\s*\{\s*\}"), "code"),
     ("stand-in outside tests", re.compile(r"\b(mock|stub|fake|dummy|placeholder|hardcoded?)\b", re.I), "code"),
 ]
+HUNK = re.compile(r"@@ -\d+(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
 ASSERTION = re.compile(r"\bassert\b|\bexpect\(|\bshould\b|\.assert[A-Z_a-z]*\(")
 
 
@@ -47,6 +48,21 @@ def git(repo, *args):
         print(f"worker_diff: git {' '.join(args)} failed: {done.stderr.strip()}", file=sys.stderr)
         sys.exit(2)
     return done.stdout
+
+
+def mentioned(path, report):
+    """True when the report names the path, or its file name, as a whole token.
+
+    "data.py" does not count as naming "a.py", and "lib/a.py" does not count as naming
+    "a.py" or "src/a.py". A path with a directory may appear as the tail of a longer one
+    ("/home/me/repo/src/a.py"); a bare file name may only take a "./" prefix. When in doubt
+    the file is listed, because a file wrongly listed gets opened and one wrongly passed does not.
+    """
+    name = Path(path).name
+    before = r"(?<![\w.-])" if "/" in path else r"(?<![\w./-])(?:\./)?"
+    if re.search(before + re.escape(path) + r"(?![\w-])", report):
+        return True
+    return bool(re.search(r"(?<![\w./-])" + re.escape(name) + r"(?![\w-])", report))
 
 
 def kind(path):
@@ -63,8 +79,23 @@ def collect(repo, base):
     for line in git(repo, "diff", "--name-status", "--no-renames", base).splitlines():
         status, _, path = line.partition("\t")
         files[path] = {"status": status, "added": [], "removed": []}
-    current, lineno = None, 0
+    # Count the lines each hunk announces, so a changed line whose own text starts with
+    # "-- " or "++ " is never mistaken for a file header.
+    current, lineno, old_left, new_left = None, 0, 0, 0
     for line in git(repo, "diff", "-U0", "--no-renames", "--no-color", base).splitlines():
+        if old_left or new_left:
+            if line.startswith("-") and old_left:
+                old_left -= 1
+                if current in files:
+                    files[current]["removed"].append(line[1:])
+            elif line.startswith("+") and new_left:
+                new_left -= 1
+                if current in files:
+                    files[current]["added"].append((lineno, line[1:]))
+                lineno += 1
+            elif not line.startswith("\\"):
+                old_left = new_left = 0
+            continue
         if line.startswith("diff --git"):
             current = None
         elif line.startswith("--- "):
@@ -73,13 +104,11 @@ def collect(repo, base):
             if line.startswith("+++ b/"):
                 current = line[6:]
         elif line.startswith("@@"):
-            found = re.search(r"\+(\d+)", line)
-            lineno = int(found.group(1)) if found else 0
-        elif current in files and line.startswith("+"):
-            files[current]["added"].append((lineno, line[1:]))
-            lineno += 1
-        elif current in files and line.startswith("-"):
-            files[current]["removed"].append(line[1:])
+            found = HUNK.match(line)
+            if found:
+                old_left = int(found.group(1)) if found.group(1) is not None else 1
+                lineno = int(found.group(2))
+                new_left = int(found.group(3)) if found.group(3) is not None else 1
     for path in git(repo, "ls-files", "--others", "--exclude-standard").splitlines():
         try:
             text = (Path(repo) / path).read_text(encoding="utf-8", errors="replace")
@@ -111,7 +140,7 @@ def main():
         except OSError as err:
             print(f"worker_diff: cannot read report: {err}", file=sys.stderr)
             sys.exit(2)
-        unmentioned = [p for p in sorted(files) if p not in report and Path(p).name not in report]
+        unmentioned = [p for p in sorted(files) if not mentioned(p, report)]
         print(f"\nUNMENTIONED in the report: {len(unmentioned)}")
         for path in unmentioned:
             print(f"  {path}")

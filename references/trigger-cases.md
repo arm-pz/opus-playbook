@@ -7,7 +7,7 @@ what to load. Competing descriptions read for these cases, each from its own SKI
 `harness-audit`.
 
 **Run:** hand-run on 2026-11-17 against the descriptions only, and all thirteen re-read the same
-day against the 0.2.0 description. No automated triggering loop and
+day against the 0.2.1 description. No automated triggering loop and
 no live session was used. Pass conditions describe what the skill should then do; none of them
 has been observed in a real hand-off to Opus.
 
@@ -24,13 +24,13 @@ has been observed in a real hand-off to Opus.
 | 7 | "Which model should my subagents run on, Opus or Sonnet?" | setup-claude-advisor | does not load opus-playbook | PASS (explicit "Not for choosing which model takes which role") |
 | 8 | "Write me a playbook for prompting Opus 5.5." | none of these | does not load opus-playbook | PASS on the description, which never mentions prompting. The skill's name invites this request; see the name note in the README |
 | 9 | "I don't trust this architecture plan. Get me a second opinion." | crash-test | does not load opus-playbook | PASS (a decision, not a delegated result) |
-| 10 | "Should I fan this job out to subagents, and at what effort?" | choose-effort | does not load opus-playbook | PASS, weaker since 0.2.0: "at what effort" points to `choose-effort`, but "handed off at all" in this description now sits close to it |
+| 10 | "Should I fan this job out to subagents, and at what effort?" | choose-effort | does not load opus-playbook | PASS. 0.2.0 made this weaker; 0.2.1 restored it with an explicit "Not for an effort level or how far to fan out (use choose-effort)" |
 | 11 | "You're the lead. If you give this to Opus, how will you check it, and what's your go/no-go?" | opus-playbook | states the "done when" conditions, the enforcement it will use and the go list before spawning | PASS |
 | 12 | "Let the worker do the refactor, but it must not push or touch the tests." | opus-playbook | withholds push from the worker's tools where the runtime allows; treats a test edit as an automatic no-go | PASS ("enforces its terms (scope, tools, tests, stop rules)") |
-| 13 | "Should this one even go to a subagent, or should you just do it yourself?" | opus-playbook | answers from the four tests in section 1 | PASS, weak: `choose-effort` ("whether to fan out to subagents") may load too |
+| 13 | "Should this one even go to a subagent, or should you just do it yourself?" | opus-playbook | answers from the four tests in section 1 | PASS, still the weakest: "safe to hand off" is ours, but `choose-effort` ("whether to fan out to subagents") may load too |
 
 Thirteen cases, thirteen reviewed by hand, none executed in a live session. No failures. Cases
-5, 10 and 13 are the weak ones and the first to re-run if a description on either side changes.
+5 and 13 are the weak ones and the first to re-run if a description on either side changes.
 
 ## Boundary pairs
 
@@ -47,9 +47,17 @@ Thirteen cases, thirteen reviewed by hand, none executed in a live session. No f
 Spans both: "check the subagent's work, then review the code properly" starts with opus-playbook,
 which gives its verdict and then offers `consistent-code-review` the commit range and the brief.
 
+## Real run
+
+The skill was used on a real hand-off to Opus on 2026-11-17. The record is in
+`runs/2026-11-17-first-hand-off.md`. It exercised the brief, the enforcement table, the full
+ladder and the go decision. No no-go exit has been exercised on real work.
+
 ## Script run
 
 `scripts/worker_diff.py` was run on 2026-11-17 against a throwaway repository with seven planted
 problems: a hardcoded return, a swallowed exception, a TODO, a skipped test, a removed assertion,
 `|| true` added to CI, and an untracked file the report did not name. It reported all seven, and
 exited 2 on an unknown base ref.
+
+From 0.2.1 the script has a unit suite: `python3 -m unittest discover -s tests` (19 tests).

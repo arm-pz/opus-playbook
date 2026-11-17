@@ -240,6 +240,47 @@ class TestFileScopeTests(RepoTestCase):
         self.assertIn(("tests/test_thing.py", 2, "test skipped or narrowed", "@pytest.mark.skip"), hits)
 
 
+class RegressionTests(RepoTestCase):
+    """Bugs found on the first real hand-off (2026-11-17), fixed in 0.2.1."""
+
+    def test_changed_lines_that_look_like_diff_headers_are_counted(self):
+        base = self.base({"q.sql": "SELECT 1;\n-- a comment\nSELECT 2;\n", "data.py": "x = 1\n"})
+        self.write("q.sql", "SELECT 1;\nSELECT 2;\n")
+        self.write("data.py", "x = 1\n++ TODO weird\n")
+        out = self.inventory(base)
+        self.assertIn("  modified       data.py  (+1 -0)  [code]", out)
+        self.assertIn("  modified       q.sql  (+0 -1)  [code]", out)
+        self.assertIn(("data.py", 2, "unfinished marker", "++ TODO weird"), self.added_hits(out))
+
+    def test_removed_assertion_starting_with_dashes_is_counted(self):
+        base = self.base({"tests/check.sql": "-- assert rows = 3\nSELECT 1;\n"})
+        self.write("tests/check.sql", "SELECT 1;\n")
+        out = self.inventory(base)
+        self.assertIn("tests/check.sql: assertion lines removed 1, added 0", out)
+
+    def test_file_without_trailing_newline(self):
+        base = self.base({"a.py": "x = 1"})
+        self.write("a.py", "x = 1\n# TODO later")
+        out = self.inventory(base)
+        self.assertIn("  modified       a.py  (+2 -1)  [code]", out)
+        self.assertIn(("a.py", 2, "unfinished marker", "# TODO later"), self.added_hits(out))
+
+    def test_mention_must_be_a_whole_name(self):
+        base = self.base({"a.py": "y = 1\n", "data.py": "x = 1\n", "src/a.py": "z = 1\n"})
+        self.write("a.py", "y = 2\n")
+        self.write("data.py", "x = 2\n")
+        self.write("src/a.py", "z = 2\n")
+        out = self.inventory(base, report="I edited data.py and lib/a.py only.\n")
+        unmentioned = section(out, "UNMENTIONED in the report:")
+        self.assertEqual([line.strip() for line in unmentioned[1:]], ["a.py", "src/a.py"])
+
+    def test_mention_by_relative_path_counts(self):
+        base = self.base({"src/a.py": "z = 1\n"})
+        self.write("src/a.py", "z = 2\n")
+        out = self.inventory(base, report="Changed ./src/a.py.\n")
+        self.assertIn("UNMENTIONED in the report: 0", out)
+
+
 class ErrorTests(RepoTestCase):
     def test_unknown_base_exits_2(self):
         self.base({"a.py": "x = 1\n"})
