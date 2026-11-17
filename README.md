@@ -15,7 +15,7 @@ It is not a guide to prompting Opus.
 - Claude app or web: upload `opus-playbook.zip` in the skills settings.
 - Other agents: copy the folder into the directory that agent reads (`.agents/skills/`,
   `.cursor/skills/`, `~/.qoder/skills/`).
-- From GitHub, once this folder is its own repository: `npx skills add <owner>/opus-playbook`
+- From GitHub: `npx skills add arm-pz/opus-playbook`
 
 Then confirm `opus-playbook` appears in the agent's skill list.
 
